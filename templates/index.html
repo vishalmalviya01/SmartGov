@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartGov AI - Report Issue</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <nav class="bg-blue-800 text-white p-4 shadow-md">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold"><i class="fas fa-robot mr-2"></i>SmartGov AI</h1>
+            <a href="/admin" class="text-sm border border-white px-3 py-1 rounded hover:bg-white hover:text-blue-800">Admin Login</a>
+        </div>
+    </nav>
+
+    <main class="container mx-auto mt-10 p-4 max-w-lg">
+        <div class="bg-white rounded-3xl shadow-2xl p-8 border border-gray-100">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Report an Issue</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-gray-600 mb-2 font-medium">Description</label>
+                    <textarea id="description" rows="3" class="w-full border rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Explain the problem (e.g. Pothole, Garbage)..."></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="document.getElementById('camera').click()" class="bg-blue-50 text-blue-700 py-3 rounded-xl font-semibold border-2 border-dashed border-blue-200 hover:bg-blue-100">
+                        <i class="fas fa-camera mr-2"></i>Take Photo
+                    </button>
+                    <input type="file" id="camera" accept="image/*" capture="environment" class="hidden" onchange="previewImage(this)">
+                    
+                    <div id="image-preview-container" class="hidden flex items-center justify-center border rounded-xl overflow-hidden">
+                        <img id="image-preview" src="#" class="h-12 w-12 object-cover">
+                    </div>
+                </div>
+
+                <button onclick="submitComplaint()" id="submit-btn" class="w-full bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-800 transition-all">
+                    Submit Complaint
+                </button>
+            </div>
+            
+            <p id="status-msg" class="mt-4 text-center text-sm font-medium hidden"></p>
+        </div>
+    </main>
+
+    <script>
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    document.getElementById('image-preview').src = e.target.result;
+                    document.getElementById('image-preview-container').classList.remove('hidden');
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        async function submitComplaint() {
+            const description = document.getElementById('description').value;
+            const imageFile = document.getElementById('camera').files[0];
+            const statusMessage = document.getElementById('status-msg');
+
+            if (!description || !imageFile) {
+                alert("Please add a description and a photo!");
+                return;
+            }
+
+            statusMessage.innerText = "📍 Fetching Location...";
+            statusMessage.className = "mt-4 text-center text-sm font-medium text-blue-600 block";
+
+            const sendToServer = async (latitude, longitude) => {
+                const formData = new FormData();
+                formData.append('description', description);
+                formData.append('live_image', imageFile);
+                formData.append('latitude', latitude);
+                formData.append('longitude', longitude);
+
+                statusMessage.innerText = "🚀 Uploading to Server...";
+
+                try {
+                    const response = await fetch('/api/submit/', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        statusMessage.innerText = "✅ Registered Successfully!";
+                        statusMessage.className = "mt-4 text-center text-sm font-medium text-green-600 block";
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        throw new Error(result.message || "Failed");
+                    }
+                } catch (error) {
+                    statusMessage.innerText = "❌ Error: " + error.message;
+                    statusMessage.className = "mt-4 text-center text-sm font-medium text-red-600 block";
+                }
+            };
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    sendToServer(position.coords.latitude, position.coords.longitude);
+                },
+                () => {
+                    console.log("Location access denied, using default.");
+                    sendToServer(23.2599, 77.4126);
+                },
+                { timeout: 5000 }
+            );
+        }
+    </script>
+</body>
+</html>
